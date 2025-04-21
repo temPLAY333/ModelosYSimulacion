@@ -56,11 +56,19 @@ def main():
     
     # Realizar la simulación para obtener temperaturas del fluido
     tiempos = np.linspace(0, 1, 11)  # 0 a 1 segundo en 11 pasos (cada 0.1 segundos)
-    resultados = simulacion.run_simulation(tiempos)
+    temperaturas = simulacion.simulate_without_heat_loss(tiempos)
     
     # Mostrar resultados en consola
-    for t, temp in zip(tiempos, resultados['fluid_temperatures']):
+    for t, temp in zip(tiempos, temperaturas):
         print(f"{t:7.1f} | {temp:7.2f}")
+    
+    # Crear diccionario de resultados para visualización
+    resultados = {
+        'times': tiempos,
+        'fluid_temperatures': temperaturas,
+        'container_name': acero.name,
+        'fluid_name': agua.name
+    }
     
     # Visualizar los resultados usando la clase Visualization
     visualizacion = Visualization(resultados)

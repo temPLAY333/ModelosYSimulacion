@@ -1,46 +1,50 @@
-from material import Material
-from fluid import Fluid
-from container import Container, Shape
-from power_source import PowerSource
-from simulation import Simulation
-from visualization import Visualization
+import time
 import numpy as np
+
+from fluid import Fluid
+from shape import create_shape
+from material import Material
+from container import Container
+from simulation import Simulation
+from power_source import PowerSource
+from visualization import Visualization
 
 def main():
     """
     Función principal para simular el calentamiento de agua en un contenedor
-    durante 1 segundo
+    considerando pérdida de calor
     """
     # Crear un fluido - agua
     agua = Fluid(
         name="Agua", 
+        volumen=0.002, # Volumen: 2L (0.002 m³)
         specific_heat=4186.0, 
         density=997.0, 
         viscosity=0.001, 
-        thermal_conductivity=0.6
+        thermal_conductivity=0.6,
+        temp=20.0
     )
     
     # Crear un material - acero inoxidable
     acero = Material(
-        name="Acero Inoxidable", 
-        thermal_conductivity=16.2, 
+        name="Aluminio", 
+        thermal_conductivity=220.0, 
         specific_heat=502.0, 
         density=7900.0
     )
     
     # Crear una forma para el contenedor - cilindro
-    cylinder_shape = Shape(
-        type="cylindrical",
-        dimensions={"radius": 0.079, "height": 0.1}  # Ajustado para 2000cc
-    )
+    cylinder_shape = create_shape(
+        type_name="cylindrical", dimensions={"radius": 0.09, "height": 0.150})  # Volumen: 3800cc
     
     # Crear un contenedor
     contenedor = Container(
-        volumen=0.002,  # Volumen en m³ (2000cc)
         forma=cylinder_shape,
         fluido=agua,
         material=acero,
-        wall_thickness=0.002  # 2mm de espesor
+        wall_thickness=0.0025,
+        base_thickness=0.0030,
+        base_density=8000.0  # Añadido: densidad específica de la base
     )
     
     # Crear una fuente de poder
@@ -49,34 +53,115 @@ def main():
     # Crear un objeto de simulación
     simulacion = Simulation(contenedor, fuente_poder)
     
-    # Simular el calentamiento durante 1 segundo
-    print("Simulando calentamiento durante 1 segundo...")
-    print("Tiempo(s) | Temperatura del fluido(°C)")
-    print("-----------------------------------")
+    # Definir temperatura objetivo y parámetros de simulación
+    temperatura_objetivo = 60.0  # Temperatura objetivo: 60°C
+    temperatura_ambiente = 20.0  # Temperatura ambiente: 20°C
+    correction_factor = 0.90  # Factor de corrección empírico
     
-    # Realizar la simulación para obtener temperaturas del fluido
-    tiempos = np.linspace(0, 1, 11)  # 0 a 1 segundo en 11 pasos (cada 0.1 segundos)
-    temperaturas = simulacion.simulate_without_heat_loss(tiempos)
+    # Calcular y mostrar el ratio volumen/superficie
+    volumen_superficie_ratio = contenedor.get_volume_to_surface_ratio()
+    print(f"Ratio volumen/superficie: {volumen_superficie_ratio:.6f} m")
     
-    # Mostrar resultados en consola
-    for t, temp in zip(tiempos, temperaturas):
-        print(f"{t:7.1f} | {temp:7.2f}")
+    # Preguntar al usuario qué tipo de simulación desea ejecutar
+    print("\nSeleccione el tipo de simulación:")
+    print("1. Con pérdida de calor")
+    print("2. Sin pérdida de calor")
     
-    # Crear diccionario de resultados para visualización
-    resultados = {
+    while True:
+        opcion = input("Ingrese su opción (1 o 2): ")
+        if opcion in ["1", "2"]:
+            break
+        print("Opción no válida. Por favor ingrese 1 o 2.")
+    
+    # Preguntar si desea agregar hielo durante la simulación
+    print("\n¿Desea agregar hielo durante la simulación?")
+    print("1. Sí")
+    print("2. No")
+    
+    agregar_hielo = False
+    tiempo_hielo = 0
+    masa_hielo = 0.0
+    sim_type = ""
+    
+    while True:
+        opcion_hielo = input("Ingrese su opción (1 o 2): ")
+        if opcion_hielo in ["1", "2"]:
+            break
+        print("Opción no válida. Por favor ingrese 1 o 2.")
+    
+    if opcion_hielo == "1":
+        agregar_hielo = True
+        while True:
+            try:
+                tiempo_hielo = int(input("¿En qué segundo desea agregar el hielo? (ej: 50): "))
+                if tiempo_hielo > 0:
+                    break
+                print("El tiempo debe ser un número positivo.")
+            except ValueError:
+                print("Por favor ingrese un número válido.")
+        
+        while True:
+            try:
+                masa_hielo_g = float(input("¿Cuántos gramos de hielo desea agregar? (ej: 100): "))
+                if masa_hielo_g > 0:
+                    masa_hielo = masa_hielo_g / 1000.0  # Convertir a kg
+                    break
+                print("La masa debe ser un número positivo.")
+            except ValueError:
+                print("Por favor ingrese un número válido.")
+    
+    # Definir tipo de simulación para el título del gráfico
+    if opcion == "1":
+        sim_type = "con pérdida de calor"
+        if agregar_hielo:
+            sim_type += f" y adición de {masa_hielo*1000:.0f}g de hielo"
+    else:
+        sim_type = "sin pérdida de calor"
+        if agregar_hielo:
+            sim_type += f" y adición de {masa_hielo*1000:.0f}g de hielo"
+    
+    # Configurar la simulación con los parámetros elegidos
+    simulacion.configure_simulation(
+        target_temp=temperatura_objetivo,
+        ambient_temp=temperatura_ambiente,
+        time_step=1.0,
+        include_heat_loss=(opcion == "1"),
+        correction_factor=correction_factor
+    )
+    
+    # Configurar adición de hielo (si corresponde)
+    simulacion.configure_ice_addition(
+        add_ice=agregar_hielo,
+        ice_add_time=tiempo_hielo,
+        ice_mass=masa_hielo
+    )
+    
+    # Mostrar información de la simulación
+    print("\nSimulando " + ("CON" if opcion == "1" else "SIN") + " pérdida de calor:")
+    if opcion == "1":
+        coef_perdida = contenedor.calculate_heat_loss_coefficient(correction_factor=correction_factor)
+        print(f"Coeficiente de pérdida calculado: {coef_perdida:.6f}")
+    
+    print(f"Simulando calentamiento hasta alcanzar {temperatura_objetivo}°C...")
+    if agregar_hielo:
+        print(f"Se agregará {masa_hielo*1000:.0f}g de hielo en t={tiempo_hielo}s")
+    
+    # Ejecutar la simulación
+    resultados = simulacion.simulate()
+    
+    # Procesar resultados para visualización
+    tiempos, temperaturas = zip(*resultados)
+    resultados_formateados = {
         'times': tiempos,
-        'fluid_temperatures': temperaturas,
-        'container_name': acero.name,
-        'fluid_name': agua.name
+        'fluid_temperatures': temperaturas
     }
     
-    # Visualizar los resultados usando la clase Visualization
-    visualizacion = Visualization(resultados)
-    visualizacion.plot_fluid_temperature_evolution(
-        title=f'Evolución de la temperatura del {agua.name} en contenedor de {acero.name} (2000cc)',
-        save_path="temperatura_fluido.png"  # Opcional: guardar el gráfico
+    # Graficar la evolución de la temperatura del fluido
+    vis = Visualization(results=resultados_formateados)
+    vis.plot_fluid_temperature_evolution(
+        title=f"Evolución de la temperatura del fluido ({sim_type})",
+        save_path="evolucion_temperatura_fluido.png"
     )
-
 
 if __name__ == "__main__":
     main()

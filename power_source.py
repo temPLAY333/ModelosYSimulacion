@@ -23,6 +23,7 @@ class PowerSource:
         """
         self.tension: float = tension
         self.current: float = current
+        self.power: float = self.tension * self.current  # Potencia en vatios
         self.history: List[Dict[str, float]] = []
         
     def connect_container(self, container: Container, time: float) -> float:
@@ -40,9 +41,6 @@ class PowerSource:
         # Cálculo basado en principios físicos de transferencia de calor
         initial_temp = container.fluido.temperature
         
-        # Potencia eléctrica en vatios (W)
-        power = self.tension * self.current
-        
         # Resistencia térmica del material
         thermal_resistance = container.material.get_thermal_resistance_factor(container.wall_thickness)
         
@@ -57,7 +55,7 @@ class PowerSource:
         efficiency_factor = 0.85
         
         # Potencia efectiva que calienta el fluido
-        effective_power = power * efficiency_factor
+        effective_power = self.power * efficiency_factor
         
         # Incremento de temperatura (ΔT = Q/mC)
         delta_temp = (effective_power * time) / heat_capacity
@@ -74,9 +72,9 @@ class PowerSource:
         self.history.append({
             'time': time,
             'temperature': new_temp,
-            'power': power,
+            'power': self.power,
             'effective_power': effective_power,
-            'heat_loss': power * (1 - thermal_loss_factor)
+            'heat_loss': self.power * (1 - thermal_loss_factor)
         })
         
         return new_temp

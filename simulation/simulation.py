@@ -1,6 +1,6 @@
 import numpy as np
-from container import Container
-from power_source import PowerSource
+from core.container import Container
+from core.power_source import PowerSource
 
 class Simulation:
     """

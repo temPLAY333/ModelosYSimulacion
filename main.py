@@ -1,13 +1,13 @@
 import time
 import numpy as np
 
-from fluid import Fluid
-from shape import create_shape
-from material import Material
-from container import Container
-from simulation import Simulation
-from power_source import PowerSource
-from visualization import Visualization
+from core.fluid import Fluid
+from core.shape import create_shape
+from core.material import Material
+from core.container import Container
+from core.power_source import PowerSource
+from simulation.simulation import Simulation
+from utils.visualization import Visualization
 
 def main():
     """

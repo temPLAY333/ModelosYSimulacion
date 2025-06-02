@@ -8,25 +8,21 @@ class PowerSource:
     Representa una fuente de poder que puede calentar un contenedor
     
     Attributes:
-        tension: Tensión aplicada en voltios
-        current: Corriente en amperios
+        power: Potencia aplicada en vatios
         history: Historial de datos para visualización
     """
-    
-    def __init__(self, tension: float, current: float = 1.0):
+    def __init__(self, power: float):
         """
-        Inicializa una fuente de poder con una tensión específica
+        Inicializa una fuente de poder con una potencia específica
         
         Args:
-            tension: Tensión de la fuente en voltios
-            current: Corriente en amperios (por defecto 1.0)
-        """
-        self.tension: float = tension
-        self.current: float = current
-        self.power: float = self.tension * self.current  # Potencia en vatios
+            power: Potencia de la fuente en vatios
+        """        
+        self.power: float = power
         self.history: List[Dict[str, float]] = []
         
-    def connect_container(self, container: Container, time: float) -> float:
+    def connect_container(self, container: Container, time: float, 
+                         current_temperature: float, fluid_volume: float) -> float:
         """
         Calcula la temperatura del fluido en el contenedor durante un tiempo específico
         utilizando propiedades físicas de los materiales y fluidos.
@@ -34,12 +30,14 @@ class PowerSource:
         Args:
             container: Objeto de tipo Container
             time: Tiempo en segundos de aplicación de la tensión
+            current_temperature: Temperatura actual del fluido en °C
+            fluid_volume: Volumen actual del fluido en m³
             
         Returns:
             La temperatura final del fluido en Celsius
         """
         # Cálculo basado en principios físicos de transferencia de calor
-        initial_temp = container.fluido.temperature
+        initial_temp = current_temperature
         
         # Resistencia térmica del material
         thermal_resistance = container.material.get_thermal_resistance_factor(container.wall_thickness)
@@ -48,7 +46,7 @@ class PowerSource:
         surface_area = container.get_surface_area()
         
         # Capacidad de calor del fluido (J/K)
-        heat_capacity = container.fluido.heat_capacity_per_volume() * container.volumen
+        heat_capacity = container.fluido.heat_capacity_per_volume() * fluid_volume
         
         # Cálculo de la transferencia de calor
         # Suponemos un coeficiente de eficiencia de la transferencia (simplificado)
@@ -59,14 +57,12 @@ class PowerSource:
         
         # Incremento de temperatura (ΔT = Q/mC)
         delta_temp = (effective_power * time) / heat_capacity
-        
-        # Calcular pérdidas por aislamiento
+          # Calcular pérdidas por aislamiento
         thermal_loss_factor = np.exp(-time / (thermal_resistance * heat_capacity))
         delta_temp *= thermal_loss_factor
         
         # Temperatura final
         new_temp = initial_temp + delta_temp
-        container.fluido.temperature = new_temp
         
         # Registrar datos para visualización
         self.history.append({

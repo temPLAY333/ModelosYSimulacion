@@ -8,13 +8,23 @@ class Simulation:
     Clase para simular el calentamiento de un fluido en un contenedor
     usando una fuente de poder específica.
     """
-    
-    def __init__(self, container: Container, power_source: PowerSource):
+    def __init__(self, container: Container, power_source: PowerSource, 
+                 initial_temperature: float = 20.0, fluid_volume: float = 0.001):
         """
-        Inicializa la simulación con un contenedor y una fuente de poder
+        Inicializa la simulación con un contenedor, fuente de poder y estado contextual
+        
+        Args:
+            container: Contenedor con fluido
+            power_source: Fuente de poder
+            initial_temperature: Temperatura inicial del fluido en °C
+            fluid_volume: Volumen del fluido en m³
         """
         self.container = container
         self.power_source = power_source
+        
+        # Estado contextual del fluido
+        self.current_temperature = initial_temperature
+        self.current_volume = fluid_volume
         
         # Configuración de simulación
         self.time_step = 1.0
@@ -57,7 +67,7 @@ class Simulation:
         self.include_heat_loss = include_heat_loss
         self.correction_factor = correction_factor
         return self
-    
+     
     def configure_ice_addition(self, add_ice=False, ice_add_time=50, ice_mass=0.1, ice_temp=-5.0):
         """
         Configura los parámetros para la adición de hielo
@@ -78,39 +88,31 @@ class Simulation:
         """
         heat_added = self.power_source.power * self.time_step
         
-        # Calcular masa actual del fluido
-        fluid_mass = self.container.fluido.density * self.container.fluido.volumen
+        # Calcular masa actual del fluido usando el estado contextual
+        fluid_mass = self.container.fluido.density * self.current_volume
         
         # Calcular incremento de temperatura
         delta_temp = heat_added / (fluid_mass * self.container.fluido.specific_heat)
         
         return heat_added, delta_temp
-    
+      
     def calculate_cooling(self, current_temp):
         """
         Calcula la disminución de temperatura debido a la pérdida de calor
-        """
-        if not self.include_heat_loss:
-            return 0, 0
+        """        # Calcular el coeficiente de transferencia de calor global U (W/K)
+        U_global = self.container.calculate_heat_loss_coefficient(self.correction_factor, self.current_volume)
+        logger.debug(f"Coeficiente de transferencia de calor global U: {U_global:.6f} W/K")
 
-        # Calcular el coeficiente de pérdida de calor basado en el grosor del contenedor
-        heat_loss_coeff = self.container.calculate_heat_loss_coefficient(self.correction_factor)
-        logger.log(f"Coeficiente de pérdida de calor calculado: {heat_loss_coeff:.6f}")
+        # Calcular la pérdida de calor usando la ley de enfriamiento de Newton
+        # Q_loss = U * (T_fluid - T_ambient) * time_step
+        heat_loss = U_global * (current_temp - self.ambient_temp) * self.time_step
+        logger.debug(f"Pérdida de calor calculada: {heat_loss:.6f} J")
 
-        # Calcular la pérdida de calor usando el coeficiente
-        surface_area = self.container.forma.get_surface_area()
-        logger.log(f"Área de superficie del contenedor: {surface_area:.6f} m²")
-
-        heat_loss = heat_loss_coeff * surface_area * (current_temp - self.ambient_temp) * self.time_step
-        logger.log(f"Pérdida de calor calculada: {heat_loss:.6f} W")
-
-        # Calcular masa actual del fluido
-        fluid_mass = self.container.fluido.density * self.container.fluido.volumen
-        logger.log(f"Masa del fluido: {fluid_mass:.6f} kg")
-
-        # Calcular disminución de temperatura
+        # Calcular masa actual del fluido usando el estado contextual
+        fluid_mass = self.container.fluido.density * self.current_volume
+        logger.debug(f"Masa del fluido: {fluid_mass:.6f} kg")        # Calcular disminución de temperatura
         temp_drop = heat_loss / (fluid_mass * self.container.fluido.specific_heat)
-        logger.log(f"Disminución de temperatura calculada: {temp_drop:.6f} °C")
+        logger.debug(f"Disminución de temperatura calculada: {temp_drop:.6f} °C")
 
         return heat_loss, temp_drop
     
@@ -143,9 +145,8 @@ class Simulation:
     def _initialize_ice_addition(self, time_elapsed, current_temp):
         """
         Inicializa el proceso de adición de hielo al sistema
-        """
-        # Guardar volumen inicial para referencia
-        self.initial_fluid_volume = self.container.fluido.volumen
+        """        # Guardar volumen inicial para referencia
+        self.initial_fluid_volume = self.current_volume
         
         # Configurar estado inicial del hielo
         self.ice_added = True
@@ -177,9 +178,8 @@ class Simulation:
         """
         # Guardar temperatura inicial para puntos intermedios
         start_temp = current_temp
-        
-        # Calcular masa actual del fluido
-        fluid_mass = self.container.fluido.density * self.container.fluido.volumen
+          # Calcular masa actual del fluido usando el estado contextual
+        fluid_mass = self.container.fluido.density * self.current_volume
         
         # 1. Calcular la energía necesaria para calentar todo el hielo hasta 0°C
         energy_needed_total = self.ice_remaining * self.ICE_SPECIFIC_HEAT * abs(self.ice_temp)
@@ -229,10 +229,9 @@ class Simulation:
         """
         Procesa la fase de fusión del hielo a temperatura constante de 0°C.
         Aplica las leyes de conservación de energía y equilibrio térmico.
-        """
-        # Guardar temperatura y volumen inicial para cálculos y reportes
+        """        # Guardar temperatura y volumen inicial para cálculos y reportes
         start_temp = current_temp
-        original_fluid_volume = self.container.fluido.volumen
+        original_fluid_volume = self.current_volume
         fluid_mass = self.container.fluido.density * original_fluid_volume
         
         # 1. CONSERVACIÓN DE ENERGÍA: determinar la energía disponible para derretir hielo
@@ -266,11 +265,10 @@ class Simulation:
         melt_rate_g_per_s = (ice_melted / self.time_step) * 1000
         
         # 3. CONSERVACIÓN DE MASA: actualizar la masa de agua en el sistema
-        
-        # El hielo derretido se convierte en agua y aumenta el volumen del fluido
+          # El hielo derretido se convierte en agua y aumenta el volumen del fluido
         water_added = ice_melted  # kg (misma masa, distinta densidad)
         water_volume_added = water_added / 1000  # m³ (asumiendo densidad del agua = 1000 kg/m³)
-        self.container.fluido.volumen += water_volume_added
+        self.current_volume += water_volume_added
         self.added_water_volume += water_volume_added
         
         # 4. EQUILIBRIO TÉRMICO: calcular la nueva temperatura del fluido
@@ -312,10 +310,9 @@ class Simulation:
             # Reportar el fin del proceso
             message = f"Todo el hielo se ha derretido. Temperatura final: {new_temp:.2f}°C"
             print(f"\n[t={time_elapsed:.1f}s] {message}")
-            
-            # Reportar cambio total de volumen
+              # Reportar cambio total de volumen
             initial_volume_ml = self.initial_fluid_volume * 1e6
-            final_volume_ml = self.container.fluido.volumen * 1e6
+            final_volume_ml = self.current_volume * 1e6
             print(f"Volumen inicial: {initial_volume_ml:.1f}cm³")
             print(f"Volumen final: {final_volume_ml:.1f}cm³")
             print(f"Incremento total: {self.added_water_volume*1e6:.1f}cm³ (+{(self.added_water_volume/self.initial_fluid_volume)*100:.1f}%)")
@@ -343,13 +340,13 @@ class Simulation:
         """
         return self.simulation_events
     
-    def simulate(self, logs=True):
+    def simulate(self, logs=True):        
         """
         Ejecuta la simulación hasta alcanzar la temperatura objetivo
         """
         results = []
         time_elapsed = 0.0
-        current_temp = self.container.fluido.temperature
+        current_temp = self.current_temperature
 
         if logs:
             logger.enable()
@@ -359,12 +356,17 @@ class Simulation:
         logger.log(f"Temperatura inicial: {current_temp:.2f}°C")
         logger.log(f"Objetivo: {self.target_temp:.2f}°C")
         logger.log("Tiempo(s) | Temperatura(°C)")
-        logger.log("-------------------------")
-
-        # Registrar punto inicial
+        logger.log("-------------------------")        # Registrar punto inicial
         results.append((time_elapsed, current_temp))
 
-        while current_temp < self.target_temp:
+        # Variables para detección de equilibrio térmico y límites de tiempo
+        max_simulation_time = 300000  # 5 horas máximo
+        equilibrium_check_interval = 1000  # Verificar equilibrio cada 1000 segundos
+        last_equilibrium_check = 0
+        temp_history = []  # Historial de temperaturas para detección de equilibrio
+        equilibrium_tolerance = 0.001  # Tolerancia para considerar equilibrio térmico
+        
+        while current_temp < self.target_temp and time_elapsed < max_simulation_time:
             # Avanzar el tiempo para este paso
             time_elapsed += self.time_step
 
@@ -378,7 +380,7 @@ class Simulation:
                 heat_loss, temp_decrease = self.calculate_cooling(current_temp)
 
             # Aplicar calentamiento/enfriamiento básico
-            current_temp += temp_increase - temp_decrease
+            current_temp = current_temp + temp_increase - temp_decrease
 
             # Comprobar si es momento de añadir hielo o continuar el proceso de fusión
             ice_effect_applied = False
@@ -401,10 +403,32 @@ class Simulation:
             # Solo si no hemos añadido puntos intermedios que ya incluyen este tiempo
             if not (ice_effect_applied and intermediate_points and 
                    any(abs(t - time_elapsed) < 0.01 for t, _ in intermediate_points)):
-                results.append((time_elapsed, current_temp))
-
-            # Mostrar actualizaciones cada 10 segundos (si no está mostrando ya por el hielo)
+                results.append((time_elapsed, current_temp))            # Mostrar actualizaciones cada 10 segundos (si no está mostrando ya por el hielo)
             if int(time_elapsed) % 10 == 0 and not (self.ice_remaining > 0 and int(time_elapsed) % 5 == 0):
                 logger.log(f"{time_elapsed:.1f} | {current_temp:.2f}")
+
+            # Verificar equilibrio térmico cada cierto intervalo
+            if time_elapsed - last_equilibrium_check >= equilibrium_check_interval:
+                temp_history.append(current_temp)
+                
+                # Mantener solo las últimas 5 mediciones para análisis de equilibrio
+                if len(temp_history) > 5:
+                    temp_history.pop(0)
+                
+                # Si tenemos suficientes mediciones, verificar equilibrio
+                if len(temp_history) >= 5:
+                    temp_variation = max(temp_history) - min(temp_history)
+                    if temp_variation < equilibrium_tolerance:
+                        logger.log(f"\nEquilibrio térmico alcanzado en {current_temp:.2f}°C después de {time_elapsed:.0f}s")
+                        logger.log(f"No es posible alcanzar la temperatura objetivo de {self.target_temp:.2f}°C")
+                        logger.log("La pérdida de calor es igual o mayor al calor añadido")
+                        break
+                
+                last_equilibrium_check = time_elapsed
+
+        # Verificar si se alcanzó el límite de tiempo
+        if time_elapsed >= max_simulation_time:
+            logger.log(f"\nLímite de tiempo alcanzado ({max_simulation_time/3600:.1f} horas)")
+            logger.log(f"Temperatura final: {current_temp:.2f}°C")
 
         return results

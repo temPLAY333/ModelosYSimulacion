@@ -1,10 +1,11 @@
 from dataclasses import dataclass
 
 
-@dataclass
 class Fluid:
     """
-    Representa un fluido con propiedades térmicas específicas.
+    Representa un tipo de fluido con propiedades físicas específicas.
+    Esta clase define las características intrínsecas del fluido (agua, aceite, etc.)
+    sin información contextual como temperatura o volumen específico.
     
     Attributes:
         name: Nombre del fluido
@@ -14,33 +15,26 @@ class Fluid:
         thermal_conductivity: Conductividad térmica en W/(m·K)
     """
 
-    
     def __init__(self, name: str, 
-                 volumen: float = 0.0,
-                 specific_heat: float = 0.0, 
-                 density: float = 0.0, 
+                 specific_heat: float, 
+                 density: float, 
                  viscosity: float = 0.0, 
-                 thermal_conductivity: float = 0.0,
-                 temp: float = 20.0):
+                 thermal_conductivity: float = 0.0):
         """
-        Inicializa un fluido con propiedades térmicas específicas.
+        Inicializa un tipo de fluido con sus propiedades físicas intrínsecas.
         
         Args:
-            name: Nombre del fluido
-            volumen: Volumen del fluido en m³
+            name: Nombre del fluido (ej: "agua", "aceite", "alcohol")
             specific_heat: Calor específico en J/(kg·K)
             density: Densidad en kg/m³
-            viscosity: Viscosidad en Pa·s
-            thermal_conductivity: Conductividad térmica en W/(m·K)
-            temp: Temperatura inicial del fluido en °C
+            viscosity: Viscosidad en Pa·s (opcional)
+            thermal_conductivity: Conductividad térmica en W/(m·K) (opcional)
         """
         self.name = name
-        self.volumen = volumen
         self.specific_heat = specific_heat
         self.density = density
         self.viscosity = viscosity
         self.thermal_conductivity = thermal_conductivity
-        self.temperature = temp  # Temperatura inicial en grados Celsius
     
     def heat_capacity_per_volume(self) -> float:
         """
@@ -50,21 +44,26 @@ class Fluid:
             Capacidad calorífica volumétrica en J/(m³·K)
         """
         return self.specific_heat * self.density
-    
-    def add_ice(self, ice_mass, ice_temp=-0.0):
+
+    def calculate_ice_addition_effects(self, current_temp, current_volume, ice_mass, ice_temp=-5.0):
         """
-        Añade hielo al fluido y calcula la nueva temperatura resultante
-        
+        Calcula los efectos de añadir hielo al fluido (sin modificar el estado del fluido).
+
         Args:
+            current_temp (float): Temperatura actual del fluido en °C
+            current_volume (float): Volumen actual del fluido en m³
             ice_mass (float): Masa del hielo en kg
             ice_temp (float): Temperatura del hielo en °C (por defecto: -5°C)
+            
+        Returns:
+            dict: Información sobre la nueva temperatura, volumen y energía absorbida
         """
         # Constantes físicas
         latent_heat_fusion = 334000.0  # J/kg (calor latente de fusión del hielo)
         ice_specific_heat = 2108.0     # J/(kg·°C) (calor específico del hielo)
         
         # Calcular masa actual del fluido
-        fluid_mass = self.density * self.volumen
+        fluid_mass = self.density * current_volume
         
         # Energía para calentar el hielo hasta 0°C
         energy_to_heat_ice = ice_mass * ice_specific_heat * (0 - ice_temp)
@@ -77,14 +76,10 @@ class Fluid:
         
         # Cambio de temperatura en el fluido original
         temp_change = total_energy_required / (fluid_mass * self.specific_heat)
-        new_temp = self.temperature - temp_change
+        new_temp = current_temp - temp_change
         
-        # Actualizar el volumen (el hielo se convierte en agua)
-        new_volume = self.volumen + (ice_mass / self.density)
-        
-        # Actualizar propiedades
-        self.volumen = new_volume
-        self.temperature = new_temp
+        # Nuevo volumen (el hielo se convierte en agua)
+        new_volume = current_volume + (ice_mass / self.density)
         
         return {
             "new_temperature": new_temp,

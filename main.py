@@ -13,16 +13,13 @@ def main():
     """
     Función principal para simular el calentamiento de agua en un contenedor
     considerando pérdida de calor
-    """
-    # Crear un fluido - agua
+    """    # Crear un fluido - agua
     agua = Fluid(
         name="Agua", 
-        volumen=0.002, # Volumen: 2L (0.002 m³)
         specific_heat=4186.0, 
         density=997.0, 
         viscosity=0.001, 
-        thermal_conductivity=0.6,
-        temp=20.0
+        thermal_conductivity=0.6
     )
     
     # Crear un material - acero inoxidable
@@ -42,16 +39,14 @@ def main():
         forma=cylinder_shape,
         fluido=agua,
         material=acero,
-        wall_thickness=0.0025,
-        base_thickness=0.0030,
+        thickness=0.0025,
         base_density=8000.0  # Añadido: densidad específica de la base
-    )
-    
-    # Crear una fuente de poder
-    fuente_poder = PowerSource(tension=220.0, current=5.0)  # 220V, 5A
-    
-    # Crear un objeto de simulación
-    simulacion = Simulation(contenedor, fuente_poder)
+    )    # Crear una fuente de poder
+    fuente_poder = PowerSource(power=1100.0)  # 1100W (220V * 5A)
+      # Crear un objeto de simulación con temperatura inicial y volumen estándar
+    simulacion = Simulation(contenedor, fuente_poder, 
+                           initial_temperature=20.0,  # 20°C initial temp
+                           fluid_volume=contenedor.get_standard_fluid_volume())  # 2/3 of container volume
     
     # Definir temperatura objetivo y parámetros de simulación
     temperatura_objetivo = 60.0  # Temperatura objetivo: 60°C
@@ -136,8 +131,7 @@ def main():
         ice_mass=masa_hielo
     )
     
-    # Mostrar información de la simulación
-    print("\nSimulando " + ("CON" if opcion == "1" else "SIN") + " pérdida de calor:")
+    # Mostrar información de la simulación    print("\nSimulando " + ("CON" if opcion == "1" else "SIN") + " pérdida de calor:")
     if opcion == "1":
         coef_perdida = contenedor.calculate_heat_loss_coefficient(correction_factor=correction_factor)
         print(f"Coeficiente de pérdida calculado: {coef_perdida:.6f}")

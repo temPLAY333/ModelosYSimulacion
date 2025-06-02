@@ -9,6 +9,7 @@ class Logs:
         Inicializa la clase Logs con los logs desactivados por defecto.
         """
         self.enabled = False
+        self.debug_enabled = False
 
     def enable(self):
         """
@@ -22,6 +23,18 @@ class Logs:
         """
         self.enabled = False
 
+    def enable_debug(self):
+        """
+        Activa los logs de debug (requiere que los logs normales estén activados).
+        """
+        self.debug_enabled = True
+
+    def disable_debug(self):
+        """
+        Desactiva los logs de debug.
+        """
+        self.debug_enabled = False
+
     def log(self, message: str):
         """
         Imprime un mensaje si los logs están activados.
@@ -31,6 +44,16 @@ class Logs:
         """
         if self.enabled:
             print(message)
+
+    def debug(self, message: str):
+        """
+        Imprime un mensaje de debug si los logs de debug están activados.
+
+        Args:
+            message (str): El mensaje de debug a imprimir.
+        """
+        if self.enabled and self.debug_enabled:
+            print(f"[DEBUG] {message}")
 
 # Instancia global para usar en todo el proyecto
 logger = Logs()

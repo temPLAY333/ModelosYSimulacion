@@ -8,7 +8,6 @@ class Visualization:
     Attributes:
         results: Resultados de la simulación a visualizar
     """
-    
     def __init__(self, results):
         """
         Inicializa la visualización con los resultados de una simulación
@@ -17,6 +16,231 @@ class Visualization:
             results: Diccionario con los resultados de la simulación
         """
         self.results = results
+    
+    def _get_colors_for_simulation(self, simulation_results, param_name):
+        """
+        Obtiene colores apropiados para las simulaciones, con lógica especial para TP5E
+        
+        Args:
+            simulation_results: Lista de resultados de simulaciones
+            param_name: Nombre del parámetro que varía
+            
+        Returns:
+            list: Lista de colores para cada simulación
+        """
+        # Para TP5E, usar colores familiares
+        if param_name == 'name' and any('simulation_type' in result for result in simulation_results):
+            return self._get_tp5e_colors(simulation_results)
+        
+        # Para otros casos, usar paleta viridis
+        return plt.cm.viridis(np.linspace(0, 1, len(simulation_results)))
+    
+    def _get_tp5e_colors(self, simulation_results):
+        """
+        Obtiene colores específicos para TP5E con familias de curvas
+        
+        Args:
+            simulation_results: Lista de resultados de simulaciones
+            
+        Returns:
+            list: Lista de colores para cada simulación
+        """
+        colors = []
+        
+        # Definir paletas de colores para cada familia
+        color_families = {
+            'base': '#000000',           # Negro para curva base
+            'initial_temp': {            # Rojos para temperatura inicial
+                'light': '#FF6B6B',      # Rojo claro (menor temperatura)
+                'dark': '#CC1F1F'        # Rojo oscuro (mayor temperatura)
+            },
+            'ambient_temp': {            # Azules para temperatura ambiente
+                'light': '#4ECDC4',      # Azul-verde claro (menor temperatura)
+                'dark': '#1A5490'        # Azul oscuro (mayor temperatura)
+            },
+            'thickness': {               # Verdes para grosor
+                'light': '#95E1A3',      # Verde claro (menor grosor)
+                'dark': '#2D5016'        # Verde oscuro (mayor grosor)
+            },
+            'power': {                   # Naranjas para potencia
+                'light': '#FFB347',      # Naranja claro (menor potencia)
+                'dark': '#FF8C00'        # Naranja oscuro (mayor potencia)
+            }
+        }
+        
+        # Asignar colores
+        for i, result in enumerate(simulation_results):
+            sim_type = result.get('simulation_type', 'unknown')
+            
+            if sim_type == 'base':
+                colors.append(color_families['base'])
+            elif sim_type in color_families and isinstance(color_families[sim_type], dict):
+                # Para familias con variaciones, determinar si es valor alto o bajo
+                if sim_type == 'initial_temp':
+                    temp = result.get('initial_temperature', 20)
+                    # Comparar con base (20°C)
+                    if temp < 20:
+                        colors.append(color_families[sim_type]['light'])
+                    else:
+                        colors.append(color_families[sim_type]['dark'])
+                elif sim_type == 'ambient_temp':
+                    temp = result.get('ambient_temperature', 20)
+                    # Comparar con base (20°C)
+                    if temp < 20:
+                        colors.append(color_families[sim_type]['light'])
+                    else:
+                        colors.append(color_families[sim_type]['dark'])
+                elif sim_type == 'thickness':
+                    thickness = result.get('wall_thickness_mm', 2.0)
+                    # Comparar con base (2.0mm)
+                    if thickness < 2.0:
+                        colors.append(color_families[sim_type]['light'])
+                    else:
+                        colors.append(color_families[sim_type]['dark'])
+                elif sim_type == 'power':
+                    power = result.get('power', 1000)
+                    # Comparar con base (1000W)
+                    if power < 1000:
+                        colors.append(color_families[sim_type]['light'])
+                    else:
+                        colors.append(color_families[sim_type]['dark'])
+                else:
+                    colors.append('#888888')  # Gris por defecto
+            else:
+                colors.append('#888888')  # Gris por defecto
+        
+        return colors
+    
+    def _get_tp5e_label(self, result):
+        """
+        Genera etiquetas específicas para TP5E mostrando el parámetro que difiere de la curva base
+        
+        Args:
+            result: Resultado de simulación con datos de TP5E
+            
+        Returns:
+            str: Etiqueta descriptiva para la leyenda
+        """
+        sim_type = result.get('simulation_type', 'unknown')
+        
+        if sim_type == 'base':
+            return 'Curva Base'
+        elif sim_type == 'initial_temp':
+            temp = result.get('initial_temperature', 20)
+            return f'T. inicial {temp:.0f}°C'
+        elif sim_type == 'ambient_temp':
+            temp = result.get('ambient_temperature', 20)
+            return f'T. ambiente {temp:.0f}°C'
+        elif sim_type == 'thickness':
+            thickness = result.get('wall_thickness_mm', 2.0)
+            return f'Grosor {thickness:.1f}mm'
+        elif sim_type == 'power':
+            power = result.get('power', 1000)
+            return f'Potencia {power:.0f}W'
+        else:
+            return result.get('name', 'Desconocido')
+    
+    def _get_colors_for_simulation(self, simulation_results, param_name):
+        """
+        Obtiene colores apropiados para las simulaciones, con lógica especial para TP5E
+        
+        Args:
+            simulation_results: Lista de resultados de simulaciones
+            param_name: Nombre del parámetro que varía
+            
+        Returns:
+            list: Lista de colores para cada simulación
+        """
+        # Para TP5E, usar colores familiares
+        if param_name == 'name' and any('simulation_type' in result for result in simulation_results):
+            return self._get_tp5e_colors(simulation_results)
+        
+        # Para otros casos, usar paleta viridis
+        return plt.cm.viridis(np.linspace(0, 1, len(simulation_results)))
+    
+    def _get_tp5e_colors(self, simulation_results):
+        """
+        Obtiene colores específicos para TP5E con familias de curvas
+        
+        Args:
+            simulation_results: Lista de resultados de simulaciones
+            
+        Returns:
+            list: Lista de colores para cada simulación
+        """
+        colors = []
+        
+        # Definir paletas de colores para cada familia
+        color_families = {
+            'base': '#000000',           # Negro para curva base
+            'initial_temp': {            # Rojos para temperatura inicial
+                'light': '#FF6B6B',      # Rojo claro (menor temperatura)
+                'dark': '#CC1F1F'        # Rojo oscuro (mayor temperatura)
+            },
+            'ambient_temp': {            # Azules para temperatura ambiente
+                'light': '#4ECDC4',      # Azul-verde claro (menor temperatura)
+                'dark': '#1A5490'        # Azul oscuro (mayor temperatura)
+            },
+            'thickness': {               # Verdes para grosor
+                'light': '#95E1A3',      # Verde claro (menor grosor)
+                'dark': '#2D5016'        # Verde oscuro (mayor grosor)
+            },
+            'power': {                   # Naranjas para potencia
+                'light': '#FFB347',      # Naranja claro (menor potencia)
+                'dark': '#FF8C00'        # Naranja oscuro (mayor potencia)
+            }
+        }
+        
+        # Agrupar simulaciones por tipo
+        type_groups = {}
+        for i, result in enumerate(simulation_results):
+            sim_type = result.get('simulation_type', 'unknown')
+            if sim_type not in type_groups:
+                type_groups[sim_type] = []
+            type_groups[sim_type].append((i, result))
+        
+        # Asignar colores
+        for i, result in enumerate(simulation_results):
+            sim_type = result.get('simulation_type', 'unknown')
+            
+            if sim_type == 'base':
+                colors.append(color_families['base'])
+            elif sim_type in color_families and isinstance(color_families[sim_type], dict):
+                # Para familias con variaciones, determinar si es valor alto o bajo
+                if sim_type == 'initial_temp':
+                    temp = result.get('initial_temperature', 20)
+                    # Comparar con base (20°C)
+                    if temp < 20:
+                        colors.append(color_families[sim_type]['light'])
+                    else:
+                        colors.append(color_families[sim_type]['dark'])
+                elif sim_type == 'ambient_temp':
+                    temp = result.get('ambient_temperature', 20)
+                    # Comparar con base (20°C)
+                    if temp < 20:
+                        colors.append(color_families[sim_type]['light'])
+                    else:
+                        colors.append(color_families[sim_type]['dark'])
+                elif sim_type == 'thickness':
+                    thickness = result.get('wall_thickness_mm', 2.0)
+                    # Comparar con base (2.0mm)
+                    if thickness < 2.0:
+                        colors.append(color_families[sim_type]['light'])
+                    else:
+                        colors.append(color_families[sim_type]['dark'])
+                elif sim_type == 'power':
+                    power = result.get('power', 1000)
+                    # Comparar con base (1000W)
+                    if power < 1000:
+                        colors.append(color_families[sim_type]['light'])
+                    else:
+                        colors.append(color_families[sim_type]['dark'])
+                else:
+                    colors.append('#888888')  # Gris por defecto
+            else:
+                colors.append('#888888')  # Gris por defecto
+        
+        return colors
         
     def plot_fluid_temperature_evolution(self, title=None, save_path=None):
         """
@@ -84,7 +308,7 @@ class Visualization:
         
         plt.tight_layout()
         plt.show()
-        
+
     def plot_distribution_results(self, simulation_results, param_name, title=None, save_path=None, 
                                 legend_title=None, x_label="Tiempo (segundos)", y_label="Temperatura (°C)"):
         """
@@ -101,8 +325,8 @@ class Visualization:
         """
         plt.figure(figsize=(12, 7))
         
-        # Paleta de colores para diferenciar mejor las líneas
-        colors = plt.cm.viridis(np.linspace(0, 1, len(simulation_results)))
+        # Sistema de colores especializado para TP5E o paleta general
+        colors = self._get_colors_for_simulation(simulation_results, param_name)
         
         # Encontrar límites globales para los ejes
         all_times = []
@@ -114,24 +338,36 @@ class Visualization:
         
         min_time, max_time = min(all_times), max(all_times)
         min_temp, max_temp = min(all_temps), max(all_temps)
-        
-        # Graficar cada resultado
+          # Graficar cada resultado
         for i, result in enumerate(simulation_results):
             times = result['times']
             temperatures = result['fluid_temperatures']
-            param_value = result[param_name]
-            
-            # Formatear valor para la leyenda
-            if isinstance(param_value, float):
-                if param_value < 0.1:  # Si es un valor pequeño como grosor en metros
-                    label_value = f"{param_value*1000:.2f} mm"
-                else:
-                    label_value = f"{param_value:.2f}"
+              # Formatear valor para la leyenda basado en el parámetro que varía
+            if param_name == 'name' and 'simulation_type' in result:
+                # Para TP5E, mostrar el parámetro específico que difiere de la curva base
+                label_value = self._get_tp5e_label(result)
+            elif param_name == 'wall_thickness_mm' and 'thickness' in result:
+                # Para distribución de grosores, mostrar el valor en mm
+                label_value = f"{result['thickness']:.1f}mm"
+            elif param_name == 'initial_temperature' and 'initial_temperature' in result:
+                # Para distribución de temperaturas iniciales
+                label_value = f"{result['initial_temperature']:.1f}°C"
+            elif param_name == 'ambient_temperature' and 'ambient_temperature' in result:
+                # Para distribución de temperaturas ambiente
+                label_value = f"{result['ambient_temperature']:.1f}°C"
+            elif param_name == 'voltage' and 'voltage' in result:
+                # Para distribución de tensiones
+                label_value = f"{result['voltage']:.1f}V"
+            elif param_name == 'combination' and 'combination' in result:
+                # Para combinaciones múltiples, usar el número de combinación
+                label_value = f"Comb. {result['combination']}"
             else:
-                label_value = str(param_value)
-                
+                # Fallback para casos no especificados
+                simulation_id = result.get('simulation_id', i + 1)
+                label_value = f"Simulación {simulation_id}"
+
             plt.plot(times, temperatures, '-', color=colors[i], 
-                    linewidth=2, label=f"{legend_title or param_name}: {label_value}")
+                    linewidth=2, label=label_value)
         
         # Configurar gráfico
         if title:

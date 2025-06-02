@@ -1,0 +1,23 @@
+# Ignorar archivos y carpetas comunes
+*.log
+*.tmp
+*.bak
+*.swp
+.DS_Store
+Thumbs.db
+
+# Ignorar entornos virtuales de Python
+venv/
+env/
+
+# Ignorar archivos de configuración de IDEs
+.vscode/
+.idea/
+
+# Ignorar archivos de compilación
+__pycache__/
+*.pyc
+*.pyo
+build/
+dist/
+*.egg-info/

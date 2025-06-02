@@ -97,12 +97,11 @@ class Statistic:
                 container.base_density
             )
             
-            # Configurar la simulación
-            current_sim = simulation
-            current_sim.container = modified_container
+            # Configurar la simulación con un nuevo objeto
+            current_sim = Simulation(modified_container, simulation.power_source)
             
             # Ejecutar la simulación
-            sim_results = current_sim.simulate()
+            sim_results = current_sim.simulate(logs=False)
             
             # Almacenar los resultados con metadatos
             results.append({

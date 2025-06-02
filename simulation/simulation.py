@@ -1,6 +1,7 @@
 import numpy as np
 from core.container import Container
 from core.power_source import PowerSource
+from utils.logs import logger
 
 class Simulation:
     """
@@ -91,16 +92,26 @@ class Simulation:
         """
         if not self.include_heat_loss:
             return 0, 0
-            
-        heat_loss = self.container.calculate_heat_loss(
-            current_temp, self.ambient_temp) * self.time_step * self.correction_factor
-        
+
+        # Calcular el coeficiente de pérdida de calor basado en el grosor del contenedor
+        heat_loss_coeff = self.container.calculate_heat_loss_coefficient(self.correction_factor)
+        logger.log(f"Coeficiente de pérdida de calor calculado: {heat_loss_coeff:.6f}")
+
+        # Calcular la pérdida de calor usando el coeficiente
+        surface_area = self.container.forma.get_surface_area()
+        logger.log(f"Área de superficie del contenedor: {surface_area:.6f} m²")
+
+        heat_loss = heat_loss_coeff * surface_area * (current_temp - self.ambient_temp) * self.time_step
+        logger.log(f"Pérdida de calor calculada: {heat_loss:.6f} W")
+
         # Calcular masa actual del fluido
         fluid_mass = self.container.fluido.density * self.container.fluido.volumen
-        
+        logger.log(f"Masa del fluido: {fluid_mass:.6f} kg")
+
         # Calcular disminución de temperatura
         temp_drop = heat_loss / (fluid_mass * self.container.fluido.specific_heat)
-        
+        logger.log(f"Disminución de temperatura calculada: {temp_drop:.6f} °C")
+
         return heat_loss, temp_drop
     
     def handle_ice(self, time_elapsed, current_temp):
@@ -332,63 +343,68 @@ class Simulation:
         """
         return self.simulation_events
     
-    def simulate(self):
+    def simulate(self, logs=True):
         """
         Ejecuta la simulación hasta alcanzar la temperatura objetivo
         """
         results = []
         time_elapsed = 0.0
         current_temp = self.container.fluido.temperature
-        
-        print(f"Temperatura inicial: {current_temp:.2f}°C")
-        print(f"Objetivo: {self.target_temp:.2f}°C")
-        print("Tiempo(s) | Temperatura(°C)")
-        print("-------------------------")
-        
+
+        if logs:
+            logger.enable()
+        else:
+            logger.disable()
+
+        logger.log(f"Temperatura inicial: {current_temp:.2f}°C")
+        logger.log(f"Objetivo: {self.target_temp:.2f}°C")
+        logger.log("Tiempo(s) | Temperatura(°C)")
+        logger.log("-------------------------")
+
         # Registrar punto inicial
         results.append((time_elapsed, current_temp))
-        
+
         while current_temp < self.target_temp:
             # Avanzar el tiempo para este paso
             time_elapsed += self.time_step
-            
+
             # Calcular calentamiento (siempre, independientemente del hielo)
             heat_added, temp_increase = self.calculate_heating(current_temp)
-            
+
             # Calcular enfriamiento (si corresponde, siempre independiente del hielo)
             heat_loss = 0
             temp_decrease = 0
             if self.include_heat_loss:
                 heat_loss, temp_decrease = self.calculate_cooling(current_temp)
-            
+
             # Aplicar calentamiento/enfriamiento básico
             current_temp += temp_increase - temp_decrease
-            
+
             # Comprobar si es momento de añadir hielo o continuar el proceso de fusión
             ice_effect_applied = False
             if self.add_ice and (time_elapsed >= self.ice_add_time or self.ice_remaining > 0):
                 new_temp, ice_processed, intermediate_points = self.handle_ice(time_elapsed, current_temp)
-                
+
                 # Añadir puntos intermedios si existen
                 if ice_processed and intermediate_points:
                     results.extend(intermediate_points)
-                    
+
                 # Actualizar temperatura con efectos del hielo
                 current_temp = new_temp
                 ice_effect_applied = ice_processed
-                
+
                 # Mostrar más actualizaciones cuando hay hielo
                 if self.ice_remaining > 0 and int(time_elapsed) % 5 == 0:
-                    print(f"{time_elapsed:.1f} | {current_temp:.2f}")
-            
+                    logger.log(f"{time_elapsed:.1f} | {current_temp:.2f}")
+
             # Registrar el resultado de este paso de tiempo
             # Solo si no hemos añadido puntos intermedios que ya incluyen este tiempo
             if not (ice_effect_applied and intermediate_points and 
                    any(abs(t - time_elapsed) < 0.01 for t, _ in intermediate_points)):
                 results.append((time_elapsed, current_temp))
-            
+
             # Mostrar actualizaciones cada 10 segundos (si no está mostrando ya por el hielo)
             if int(time_elapsed) % 10 == 0 and not (self.ice_remaining > 0 and int(time_elapsed) % 5 == 0):
-                print(f"{time_elapsed:.1f} | {current_temp:.2f}")
-        
+                logger.log(f"{time_elapsed:.1f} | {current_temp:.2f}")
+
         return results

@@ -33,8 +33,8 @@ def crear_objetos_base():
     water = Fluid(name="water", density=1000, specific_heat=4186, volumen=0.001, temp=20)  # 1 litro, 20°C
     
     # Crear material (acero)
-    steel = Material(name="steel", thermal_conductivity=15)  # Acero
-    
+    steel = Material(name="steel", thermal_conductivity=15, specific_heat=502.0, density=7900.0)  # Acero
+
     # Crear contenedor base
     base_thickness = 0.002  # Grosor base: 2 mm
     wall_thickness = 0.002  # Grosor pared: 2 mm
@@ -55,7 +55,7 @@ def crear_objetos_base():
         correction_factor=1.0
     )
     
-    return container, power_source, simulation
+    return container, simulation
 
 def distribucion_uniforme_resistencias():
     """
@@ -63,16 +63,16 @@ def distribucion_uniforme_resistencias():
     """
     print("\nTP 5.A: Distribución uniforme de 5 valores próximos de resistencias")
     print("="*70)
-    
+
     # Crear objetos base
-    container, power_source, simulation = crear_objetos_base()
-    
+    container, simulation = crear_objetos_base()
+
     # Crear objeto para estadísticas
     stats = Statistic()
-    
+
     # Obtener parámetros del usuario para la distribución
     print("\nParámetros para la distribución uniforme de resistencias (grosor de pared):")
-    
+
     while True:
         try:
             min_thickness = float(input("Ingrese el grosor mínimo en mm (recomendado 0.8): "))
@@ -83,7 +83,7 @@ def distribucion_uniforme_resistencias():
             break
         except ValueError:
             print("Por favor ingrese un número válido.")
-    
+
     while True:
         try:
             max_thickness = float(input("Ingrese el grosor máximo en mm (recomendado 5.0): "))
@@ -94,12 +94,12 @@ def distribucion_uniforme_resistencias():
             break
         except ValueError:
             print("Por favor ingrese un número válido.")
-    
+
     num_simulations = 5  # Fijo en 5 según el enunciado del TP
-    
+
     # Ejecutar simulaciones con distribución uniforme de resistencias (grosores)
     print(f"\nEjecutando {num_simulations} simulaciones con diferentes grosores de pared...\n")
-    
+
     # Ejecutar las simulaciones
     results = stats.run_simulations_with_uniform_resistances(
         simulation, 
@@ -108,14 +108,30 @@ def distribucion_uniforme_resistencias():
         max_thickness, 
         num_simulations
     )
-    
+
     # Crear directorio para guardar resultados si no existe
     os.makedirs("results/images", exist_ok=True)
-    
+
+    # Mostrar resultados en formato tabular
+    print("\nResultados de las simulaciones (temperaturas en °C):")
+    print("="*70)
+    print("Tiempo (s)\t" + "\t".join([f"Sim {i+1}" for i in range(num_simulations)]))
+    for i in range(0, len(results[0]['times']), 10):  # Mostrar cada 10 segundos
+        row = [f"{results[0]['times'][i]:.1f}"] + [""] + [f"{results[j]['fluid_temperatures'][i]:.2f}" for j in range(num_simulations)]
+        print("\t".join(row))
+
+    # Verificar que las simulaciones generen diferentes resultados
+    unique_temperatures = any(
+        results[i]['fluid_temperatures'] != results[j]['fluid_temperatures']
+        for i in range(num_simulations) for j in range(i + 1, num_simulations)
+    )
+    if not unique_temperatures:
+        print("\nAdvertencia: Todas las simulaciones generaron los mismos resultados. Verifique los parámetros de entrada.")
+
     # Visualizar los resultados
     print("\nGenerando visualización de resultados...")
     viz = Visualization({})  # Inicializamos con un diccionario vacío
-    
+
     # Crear y mostrar el gráfico
     viz.plot_distribution_results(
         results, 
@@ -126,12 +142,12 @@ def distribucion_uniforme_resistencias():
         x_label='Tiempo (segundos)',
         y_label='Temperatura (°C)'
     )
-    
+
     print(f"\nResultados guardados en 'results/images/tp5a_resistencias.png'")
-    
+
     # Mostrar estadísticas
     mostrar_estadisticas_resistencias(results)
-    
+
     input("\nPresione Enter para volver al menú principal...")
 
 def distribucion_normal_temperaturas_iniciales():
@@ -194,7 +210,7 @@ def distribucion_normal_temperaturas_iniciales():
         )
         
         # Ejecutar simulación
-        sim_results = current_sim.simulate()
+        sim_results = current_sim.simulate(logs=False)  # Desactivar logs para evitar ruido
         
         # Almacenar resultados
         results.append({

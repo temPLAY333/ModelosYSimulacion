@@ -231,6 +231,8 @@ def distribucion_normal_temperaturas_iniciales():
             'times': [time for time, _ in sim_results],
             'fluid_temperatures': [temp for _, temp in sim_results]
         })
+      # Ordenar resultados por temperatura inicial (ascendente) para que las curvas aparezcan ordenadas en la leyenda
+    results_sorted = sorted(results, key=lambda x: x['initial_temperature'])
     
     # Crear directorio para guardar resultados si no existe
     os.makedirs("results/images", exist_ok=True)
@@ -238,7 +240,7 @@ def distribucion_normal_temperaturas_iniciales():
     # Visualizar resultados
     viz = Visualization({})
     viz.plot_distribution_results(
-        results,
+        results_sorted,
         'initial_temperature',
         title='TP 5.B: Efecto de la temperatura inicial en el calentamiento del fluido',
         save_path='results/images/tp5b_temperaturas_iniciales.png',
@@ -253,7 +255,7 @@ def distribucion_normal_temperaturas_iniciales():
 
 def distribucion_uniforme_temperaturas_ambiente():
     """
-    TP 5.C: Distribución uniforme de 5 temperaturas iniciales del ambiente,
+    TP 5.C: Distribución uniforme de 8 temperaturas iniciales del ambiente,
     entre -20 y 50 grados.
     """
     print("\nTP 5.C: Distribución uniforme de temperaturas ambiente")
@@ -268,7 +270,7 @@ def distribucion_uniforme_temperaturas_ambiente():
     # Según el enunciado, rango de -20°C a 50°C y 5 valores
     min_temp = -20
     max_temp = 50
-    count = 5
+    count = 8
     
     print(f"\nRango de temperatura ambiente: {min_temp}°C a {max_temp}°C")
     print(f"Número de valores: {count}")
@@ -302,6 +304,8 @@ def distribucion_uniforme_temperaturas_ambiente():
             'times': [time for time, _ in sim_results],
             'fluid_temperatures': [temp for _, temp in sim_results]
         })
+      # Ordenar resultados por temperatura ambiente (ascendente) para que las curvas aparezcan ordenadas en la leyenda
+    results_sorted = sorted(results, key=lambda x: x['ambient_temperature'])
     
     # Crear directorio para guardar resultados si no existe
     os.makedirs("results/images", exist_ok=True)
@@ -309,7 +313,7 @@ def distribucion_uniforme_temperaturas_ambiente():
     # Visualizar resultados
     viz = Visualization({})
     viz.plot_distribution_results(
-        results,
+        results_sorted,
         'ambient_temperature',
         title='TP 5.C: Efecto de la temperatura ambiente en el calentamiento del fluido',
         save_path='results/images/tp5c_temperaturas_ambiente.png',
@@ -406,6 +410,8 @@ def distribucion_normal_tension_alimentacion():
             'times': [time for time, _ in sim_results],
             'fluid_temperatures': [temp for _, temp in sim_results]
         })
+      # Ordenar resultados por tensión (ascendente) para que las curvas aparezcan ordenadas en la leyenda
+    results_sorted = sorted(results, key=lambda x: x['voltage'])
     
     # Crear directorio para guardar resultados si no existe
     os.makedirs("results/images", exist_ok=True)
@@ -413,7 +419,7 @@ def distribucion_normal_tension_alimentacion():
     # Visualizar resultados
     viz = Visualization({})
     viz.plot_distribution_results(
-        results,
+        results_sorted,
         'voltage',
         title=f'TP 5.D: Efecto de la tensión ({voltage_type}) en el calentamiento del fluido',
         save_path='results/images/tp5d_tension_alimentacion.png',

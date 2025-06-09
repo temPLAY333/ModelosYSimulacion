@@ -1,7 +1,9 @@
 import numpy as np
 from core.container import Container
 from core.power_source import PowerSource
+from core.evento_aleatorio import EventoAleatorio
 from utils.logs import logger
+from typing import Optional
 
 class Simulation:
     """
@@ -48,13 +50,16 @@ class Simulation:
         self.ice_temp = -5.0               # °C - Temperatura inicial del hielo
         self.ice_remaining = 0.0           # kg - Masa de hielo restante
         self.ice_phase = None              # Fase actual del proceso (None, 'warming', 'melting')
-        
-        # Variables para seguimiento
+          # Variables para seguimiento
         self.initial_fluid_volume = 0.0    # m³
         self.added_water_volume = 0.0      # m³ - Volumen de agua añadido por hielo derretido
         
         # Para eventos de simulación
         self.simulation_events = {}
+        
+        # Configuración para eventos aleatorios
+        self.evento_aleatorio = None  # Se configurará con configure_evento_aleatorio()
+        self.include_random_events = False
     
     def configure_simulation(self, target_temp, ambient_temp=25.0, time_step=1.0, 
                            include_heat_loss=True, correction_factor=1.0):
@@ -80,6 +85,30 @@ class Simulation:
         self.ice_phase = None
         self.ice_remaining = 0.0
         self.added_water_volume = 0.0
+        return self
+    
+    def configure_evento_aleatorio(self, include_random_events=False, 
+                                 descenso_temp_por_segundo_media=1.5, 
+                                 duracion_segundos_media=15.0):
+        """
+        Configura los parámetros para eventos aleatorios durante la simulación.
+        
+        Los eventos tienen probabilidad FIJA de 1/300 por segundo y usan distribuciones
+        normales para generar parámetros aleatorios en cada evento.
+        
+        Args:
+            include_random_events: Si incluir eventos aleatorios en la simulación
+            descenso_temp_por_segundo_media: Media de la velocidad de descenso (default: 1.5°C/s)
+            duracion_segundos_media: Media de la duración del evento (default: 15s)
+        """
+        self.include_random_events = include_random_events
+        if include_random_events:
+            self.evento_aleatorio = EventoAleatorio(
+                descenso_temp_por_segundo_media=descenso_temp_por_segundo_media,
+                duracion_segundos_media=duracion_segundos_media
+            )
+        else:
+            self.evento_aleatorio = None
         return self
     
     def calculate_heating(self, current_temp):
@@ -333,12 +362,60 @@ class Simulation:
             interp_temp = start_temp - (start_temp - end_temp) * fraction
             points.append((interp_time, interp_temp))
         return points
-    
+      
     def get_simulation_events(self):
         """
         Devuelve los eventos importantes registrados durante la simulación
         """
         return self.simulation_events
+    
+    def handle_evento_aleatorio(self, time_elapsed, temperatura_actual=None):
+        """
+        Maneja los eventos aleatorios durante la simulación.
+        
+        Args:
+            time_elapsed: Tiempo transcurrido en la simulación
+            temperatura_actual: Temperatura actual del fluido en este momento
+            
+        Returns:
+            float: Descenso de temperatura causado por el evento aleatorio
+        """
+        if not self.include_random_events or self.evento_aleatorio is None:
+            return 0.0
+        
+        descenso_temp = 0.0
+          # Verificar si debe iniciarse un nuevo evento
+        if self.evento_aleatorio.verificar_evento(time_elapsed):
+            # Usar la temperatura actual pasada como parámetro, o la del estado contextual como fallback
+            temp_para_registro = temperatura_actual if temperatura_actual is not None else self.current_temperature
+            descenso_total, duracion = self.evento_aleatorio.iniciar_evento(time_elapsed, temp_para_registro)
+            
+            # Registrar el evento en el historial de simulación
+            event_message = f"Evento aleatorio iniciado: -{descenso_total:.1f}°C durante {duracion:.1f}s"
+            self.simulation_events[time_elapsed] = event_message              # Mostrar cuadro con datos del evento detectado
+            print(f"\n" + "="*60)
+            print(f"EVENTO ALEATORIO DETECTADO en t={time_elapsed:.1f}s")
+            print(f"="*60)
+            print(f"Temperatura al inicio del evento: {temp_para_registro:.2f}°C")
+            print(f"Descenso de temperatura: {descenso_total:.1f}°C")
+            print(f"Duracion estimada: {duracion:.1f}s")
+            print(f"Velocidad de descenso: {descenso_total/duracion:.2f}°C/s")
+            print(f"IMPORTANTE: El calentamiento CONTINÚA durante el evento")
+            print(f"Resultado neto = Calentamiento - Evento")
+            print(f"="*60)# Procesar evento activo (si existe)
+        if self.evento_aleatorio.evento_activo:
+            descenso_temp = self.evento_aleatorio.procesar_evento(time_elapsed, self.time_step)
+            
+            # Verificar si el evento terminó
+            if not self.evento_aleatorio.evento_activo and descenso_temp == 0.0:
+                event_message = "Evento aleatorio finalizado"
+                self.simulation_events[time_elapsed] = event_message
+                print(f"\n[t={time_elapsed:.1f}s] EVENTO ALEATORIO FINALIZADO")
+                print(f"Temperatura actual: {self.current_temperature:.2f}°C")
+                print(f"Calentamiento normal continúa...")
+                print("-"*60)
+        
+        return descenso_temp
     
     def simulate(self, logs=True):        
         """
@@ -368,19 +445,36 @@ class Simulation:
         
         while current_temp < self.target_temp and time_elapsed < max_simulation_time:
             # Avanzar el tiempo para este paso
-            time_elapsed += self.time_step
-
-            # Calcular calentamiento (siempre, independientemente del hielo)
+            time_elapsed += self.time_step            # Calcular calentamiento (siempre, independientemente del hielo)
             heat_added, temp_increase = self.calculate_heating(current_temp)
 
             # Calcular enfriamiento (si corresponde, siempre independiente del hielo)
             heat_loss = 0
             temp_decrease = 0
             if self.include_heat_loss:
-                heat_loss, temp_decrease = self.calculate_cooling(current_temp)
-
-            # Aplicar calentamiento/enfriamiento básico
-            current_temp = current_temp + temp_increase - temp_decrease
+                heat_loss, temp_decrease = self.calculate_cooling(current_temp)            # =====================================
+            # APLICAR PROCESOS FÍSICOS SIMULTÁNEOS
+            # =====================================
+            
+            # 1. PROCESOS BASE: Aplicar calentamiento y enfriamiento natural
+            temp_before_events = current_temp + temp_increase - temp_decrease            # 2. EVENTOS ALEATORIOS: Ocurren SIMULTÁNEAMENTE con el calentamiento
+            #    El sistema SIGUE calentando mientras el evento causa descenso adicional
+            #    Esto simula condiciones reales como pérdidas imprevistas, cortes parciales, etc.
+            evento_temp_decrease = 0.0
+            if self.include_random_events:
+                evento_temp_decrease = self.handle_evento_aleatorio(time_elapsed, temp_before_events)
+                
+                # Si hay evento activo, mostrar la evolución detallada cada segundo
+                if self.evento_aleatorio and self.evento_aleatorio.evento_activo and int(time_elapsed) % 1 == 0:
+                    estado = self.evento_aleatorio.get_estado_evento()
+                    if estado:
+                        print(f"t={time_elapsed:.0f}s: Temp={temp_before_events:.2f}°C → "
+                              f"{temp_before_events - evento_temp_decrease:.2f}°C "
+                              f"(calentamiento: +{temp_increase:.2f}°C, evento: -{evento_temp_decrease:.2f}°C, "
+                              f"restante: {estado['tiempo_restante']:.0f}s)")
+            
+            # Aplicar el descenso del evento
+            current_temp = temp_before_events - evento_temp_decrease
 
             # Comprobar si es momento de añadir hielo o continuar el proceso de fusión
             ice_effect_applied = False

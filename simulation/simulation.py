@@ -86,25 +86,27 @@ class Simulation:
         self.ice_remaining = 0.0
         self.added_water_volume = 0.0
         return self
-    
+      
     def configure_evento_aleatorio(self, include_random_events=False, 
-                                 descenso_temp_por_segundo_media=1.5, 
-                                 duracion_segundos_media=15.0):
+                                 descenso_temp_total_media=15.0, 
+                                 duracion_segundos_media=20.0):
         """
         Configura los parámetros para eventos aleatorios durante la simulación.
         
-        Los eventos tienen probabilidad FIJA de 1/300 por segundo y usan distribuciones
-        normales para generar parámetros aleatorios en cada evento.
+        NUEVA IMPLEMENTACIÓN:
+        - Temperatura total: Chi-cuadrada (favorece números pequeños)
+        - Duración: Normal (mínimo 10 segundos)
+        - Aplicación: Distribución normal desordenada por segundo
         
         Args:
             include_random_events: Si incluir eventos aleatorios en la simulación
-            descenso_temp_por_segundo_media: Media de la velocidad de descenso (default: 1.5°C/s)
-            duracion_segundos_media: Media de la duración del evento (default: 15s)
+            descenso_temp_total_media: Media del descenso total de temperatura (default: 15°C)
+            duracion_segundos_media: Media de la duración del evento (default: 20s)
         """
         self.include_random_events = include_random_events
         if include_random_events:
             self.evento_aleatorio = EventoAleatorio(
-                descenso_temp_por_segundo_media=descenso_temp_por_segundo_media,
+                descenso_temp_total_media=descenso_temp_total_media,
                 duracion_segundos_media=duracion_segundos_media
             )
         else:
